@@ -203,16 +203,16 @@ kube-controller-manager.pem
 ```
 
 
-### The Kube Proxy Client Certificate
+### The Cilium Client Certificate
 
-Generate the `kube-proxy` client certificate and private key:
+Generate the `cilium` client certificate and private key:
 
 ```
 {
 
-cat > kube-proxy-csr.json <<EOF
+cat > cilium-csr.json <<EOF
 {
-  "CN": "system:kube-proxy",
+  "CN": "cilium",
   "key": {
     "algo": "rsa",
     "size": 2048
@@ -221,7 +221,7 @@ cat > kube-proxy-csr.json <<EOF
     {
       "C": "US",
       "L": "Portland",
-      "O": "system:node-proxier",
+      "O": "cilium",
       "OU": "Kubernetes The Hard Way",
       "ST": "Oregon"
     }
@@ -234,7 +234,7 @@ cfssl gencert \
   -ca-key=ca-key.pem \
   -config=ca-config.json \
   -profile=kubernetes \
-  kube-proxy-csr.json | cfssljson -bare kube-proxy
+  cilium-csr.json | cfssljson -bare cilium
 
 }
 ```
@@ -242,8 +242,51 @@ cfssl gencert \
 Results:
 
 ```
-kube-proxy-key.pem
-kube-proxy.pem
+cilium-key.pem
+cilium.pem
+```
+
+### The Cilium Operator Client Certificate
+
+Generate the `cilium-operator` client certificate and private key:
+
+```
+{
+
+cat > cilium-operator-csr.json <<EOF
+{
+  "CN": "cilium-operator",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "US",
+      "L": "Portland",
+      "O": "cilium-operator",
+      "OU": "Kubernetes The Hard Way",
+      "ST": "Oregon"
+    }
+  ]
+}
+EOF
+
+cfssl gencert \
+  -ca=ca.pem \
+  -ca-key=ca-key.pem \
+  -config=ca-config.json \
+  -profile=kubernetes \
+  cilium-operator-csr.json | cfssljson -bare cilium-operator
+
+}
+```
+
+Results:
+
+```
+cilium-operator-key.pem
+cilium-operator.pem
 ```
 
 ### The Scheduler Client Certificate
@@ -409,6 +452,6 @@ for instance in controller-0 controller-1 controller-2; do
 done
 ```
 
-> The `kube-proxy`, `kube-controller-manager`, `kube-scheduler`, and `kubelet` client certificates will be used to generate client authentication configuration files in the next lab.
+> The `cilium`, `cilium-operator`, `kube-controller-manager`, `kube-scheduler`, and `kubelet` client certificates will be used to generate client authentication configuration files in the next lab.
 
 Next: [Generating Kubernetes Configuration Files for Authentication](05-kubernetes-configuration-files.md)

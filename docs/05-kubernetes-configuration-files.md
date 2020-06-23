@@ -57,9 +57,9 @@ worker-1.kubeconfig
 worker-2.kubeconfig
 ```
 
-### The kube-proxy Kubernetes Configuration File
+### The Cilium Kubernetes Configuration File
 
-Generate a kubeconfig file for the `kube-proxy` service:
+Generate a kubeconfig file for the `cilium` service:
 
 ```
 {
@@ -67,27 +67,60 @@ Generate a kubeconfig file for the `kube-proxy` service:
     --certificate-authority=ca.pem \
     --embed-certs=true \
     --server=https://${KUBERNETES_PUBLIC_ADDRESS}:6443 \
-    --kubeconfig=kube-proxy.kubeconfig
+    --kubeconfig=cilium.kubeconfig
 
-  kubectl config set-credentials system:kube-proxy \
-    --client-certificate=kube-proxy.pem \
-    --client-key=kube-proxy-key.pem \
+  kubectl config set-credentials cilium \
+    --client-certificate=cilium.pem \
+    --client-key=cilium-key.pem \
     --embed-certs=true \
-    --kubeconfig=kube-proxy.kubeconfig
+    --kubeconfig=cilium.kubeconfig
 
   kubectl config set-context default \
     --cluster=kubernetes-the-hard-way \
-    --user=system:kube-proxy \
-    --kubeconfig=kube-proxy.kubeconfig
+    --user=system:cilium \
+    --kubeconfig=cilium.kubeconfig
 
-  kubectl config use-context default --kubeconfig=kube-proxy.kubeconfig
+  kubectl config use-context default --kubeconfig=cilium.kubeconfig
 }
 ```
 
 Results:
 
 ```
-kube-proxy.kubeconfig
+cilium.kubeconfig
+```
+
+### The Cilium Operator Kubernetes Configuration File
+
+Generate a kubeconfig file for the `cilium-operator` service:
+
+```
+{
+  kubectl config set-cluster kubernetes-the-hard-way \
+    --certificate-authority=ca.pem \
+    --embed-certs=true \
+    --server=https://${KUBERNETES_PUBLIC_ADDRESS}:6443 \
+    --kubeconfig=cilium-operator.kubeconfig
+
+  kubectl config set-credentials cilium-operator \
+    --client-certificate=cilium-operator.pem \
+    --client-key=cilium-operator-key.pem \
+    --embed-certs=true \
+    --kubeconfig=cilium-operator.kubeconfig
+
+  kubectl config set-context default \
+    --cluster=kubernetes-the-hard-way \
+    --user=system:cilium-operator \
+    --kubeconfig=cilium-operator.kubeconfig
+
+  kubectl config use-context default --kubeconfig=cilium-operator.kubeconfig
+}
+```
+
+Results:
+
+```
+cilium-operator.kubeconfig
 ```
 
 ### The kube-controller-manager Kubernetes Configuration File
@@ -195,11 +228,11 @@ admin.kubeconfig
 
 ## Distribute the Kubernetes Configuration Files
 
-Copy the appropriate `kubelet` and `kube-proxy` kubeconfig files to each worker instance:
+Copy the appropriate `kubelet`, `cilium`, and `cilium-operator` kubeconfig files to each worker instance:
 
 ```
 for instance in worker-0 worker-1 worker-2; do
-  gcloud compute scp ${instance}.kubeconfig kube-proxy.kubeconfig ${instance}:~/
+  gcloud compute scp ${instance}.kubeconfig cilium.kubeconfig cilium-operator.kubeconfig ${instance}:~/
 done
 ```
 

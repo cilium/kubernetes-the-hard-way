@@ -35,6 +35,32 @@ coredns-699f8ddd77-94qv9   1/1     Running   0          20s
 coredns-699f8ddd77-gtcgb   1/1     Running   0          20s
 ```
 
+### Cilium addendum
+Edit the coredns config with the following command:
+```
+kubectl -n kube-system edit configmap/coredns
+```
+And add edit the file to add the forward plugin (`forward . /etc/resolv.conf`) to be able to resolve outside-of-the-cluster addresses:
+```yaml
+data
+  Corefile:
+    .:53 {
+        errors
+        health
+        ready
+        kubernetes cluster.local in-addr.arpa ip6.arpa {
+          pods insecure
+          fallthrough in-addr.arpa ip6.arpa
+        }
++       forward . /etc/resolv.conf
+        prometheus :9153
+        cache 30
+        loop
+        reload
+        loadbalance
+    }
+```
+
 ## Verification
 
 Create a `busybox` deployment:

@@ -1,6 +1,6 @@
 # Bootstrapping the Kubernetes Worker Nodes
 
-In this lab you will bootstrap three Kubernetes worker nodes. The following components will be installed on each node: [runc](https://github.com/opencontainers/runc), [container networking plugins](https://github.com/containernetworking/cni), [containerd](https://github.com/containerd/containerd), [kubelet](https://kubernetes.io/docs/admin/kubelet), and [kube-proxy](https://kubernetes.io/docs/concepts/cluster-administration/proxies).
+In this lab you will bootstrap three Kubernetes worker nodes. The following components will be installed on each node: [runc](https://github.com/opencontainers/runc), [container networking plugins](https://github.com/containernetworking/cni), [containerd](https://github.com/containerd/containerd), and [kubelet](https://kubernetes.io/docs/admin/kubelet).
 
 ## Prerequisites
 
@@ -54,7 +54,6 @@ wget -q --show-progress --https-only --timestamping \
   https://github.com/containernetworking/plugins/releases/download/v0.8.2/cni-plugins-linux-amd64-v0.8.2.tgz \
   https://github.com/containerd/containerd/releases/download/v1.2.9/containerd-1.2.9.linux-amd64.tar.gz \
   https://storage.googleapis.com/kubernetes-release/release/v1.15.3/bin/linux/amd64/kubectl \
-  https://storage.googleapis.com/kubernetes-release/release/v1.15.3/bin/linux/amd64/kube-proxy \
   https://storage.googleapis.com/kubernetes-release/release/v1.15.3/bin/linux/amd64/kubelet
 ```
 
@@ -63,9 +62,9 @@ Create the installation directories:
 ```
 sudo mkdir -p \
   /etc/cni/net.d \
+  /etc/cilium \
   /opt/cni/bin \
   /var/lib/kubelet \
-  /var/lib/kube-proxy \
   /var/lib/kubernetes \
   /var/run/kubernetes
 ```
@@ -79,53 +78,10 @@ Install the worker binaries:
   tar -xvf containerd-1.2.9.linux-amd64.tar.gz -C containerd
   sudo tar -xvf cni-plugins-linux-amd64-v0.8.2.tgz -C /opt/cni/bin/
   sudo mv runc.amd64 runc
-  chmod +x crictl kubectl kube-proxy kubelet runc 
-  sudo mv crictl kubectl kube-proxy kubelet runc /usr/local/bin/
+  chmod +x crictl kubectl kubelet runc 
+  sudo mv crictl kubectl kubelet runc /usr/local/bin/
   sudo mv containerd/bin/* /bin/
 }
-```
-
-### Configure CNI Networking
-
-Retrieve the Pod CIDR range for the current compute instance:
-
-```
-POD_CIDR=$(curl -s -H "Metadata-Flavor: Google" \
-  http://metadata.google.internal/computeMetadata/v1/instance/attributes/pod-cidr)
-```
-
-Create the `bridge` network configuration file:
-
-```
-cat <<EOF | sudo tee /etc/cni/net.d/10-bridge.conf
-{
-    "cniVersion": "0.3.1",
-    "name": "bridge",
-    "type": "bridge",
-    "bridge": "cnio0",
-    "isGateway": true,
-    "ipMasq": true,
-    "ipam": {
-        "type": "host-local",
-        "ranges": [
-          [{"subnet": "${POD_CIDR}"}]
-        ],
-        "routes": [{"dst": "0.0.0.0/0"}]
-    }
-}
-EOF
-```
-
-Create the `loopback` network configuration file:
-
-```
-cat <<EOF | sudo tee /etc/cni/net.d/99-loopback.conf
-{
-    "cniVersion": "0.3.1",
-    "name": "lo",
-    "type": "loopback"
-}
-EOF
 ```
 
 ### Configure containerd
@@ -240,55 +196,33 @@ WantedBy=multi-user.target
 EOF
 ```
 
-### Configure the Kubernetes Proxy
-
-```
-sudo mv kube-proxy.kubeconfig /var/lib/kube-proxy/kubeconfig
-```
-
-Create the `kube-proxy-config.yaml` configuration file:
-
-```
-cat <<EOF | sudo tee /var/lib/kube-proxy/kube-proxy-config.yaml
-kind: KubeProxyConfiguration
-apiVersion: kubeproxy.config.k8s.io/v1alpha1
-clientConnection:
-  kubeconfig: "/var/lib/kube-proxy/kubeconfig"
-mode: "iptables"
-clusterCIDR: "10.200.0.0/16"
-EOF
-```
-
-Create the `kube-proxy.service` systemd unit file:
-
-```
-cat <<EOF | sudo tee /etc/systemd/system/kube-proxy.service
-[Unit]
-Description=Kubernetes Kube Proxy
-Documentation=https://github.com/kubernetes/kubernetes
-
-[Service]
-ExecStart=/usr/local/bin/kube-proxy \\
-  --config=/var/lib/kube-proxy/kube-proxy-config.yaml
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
-```
-
 ### Start the Worker Services
 
 ```
 {
   sudo systemctl daemon-reload
-  sudo systemctl enable containerd kubelet kube-proxy
-  sudo systemctl start containerd kubelet kube-proxy
+  sudo systemctl enable containerd kubelet
+  sudo systemctl start containerd kubelet
 }
 ```
 
 > Remember to run the above commands on each worker node: `worker-0`, `worker-1`, and `worker-2`.
+
+### Configure and Install Cilium
+
+```
+sudo mv cilium.kubeconfig cilium-operator.kubeconfig /etc/cilium/
+```
+
+> Remember to run the above commands on each worker node: `worker-0`, `worker-1`, and `worker-2`.
+
+```
+helm install cilium cilium/cilium \
+    --namespace kube-system \
+    --set global.kubeProxyReplacement=strict \
+    --set global.k8sServiceHost=$KUBERNETES_PUBLIC_ADDRESS \
+    --set global.k8sServicePort=6443
+```
 
 ## Verification
 
